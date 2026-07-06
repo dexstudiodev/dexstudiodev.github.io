@@ -187,7 +187,23 @@
       gap:12px;
     }
 
-    .cta-button,
+    .cta-button {
+      border: 0;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--hot), var(--blue));
+      color: #080913;
+      font-size: .72rem;
+      font-weight: 1000;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      min-height: 42px;
+      padding: 11px 18px;
+      box-shadow: 0 0 26px rgba(217,107,255,.22);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
 
     .discord-btn-icon {
       width: 24px;
@@ -1287,6 +1303,27 @@
       padding: 11px 18px;
       white-space: nowrap;
     }
+
+    /* Login button color matched with hamburger button */
+    #loginBtn.top-auth-btn,
+    .top-auth-btn {
+      border: 0 !important;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--hot), var(--blue)) !important;
+      color: #080913 !important;
+      box-shadow: 0 0 26px rgba(217,107,255,.22) !important;
+      min-height: 42px;
+      padding: 11px 18px;
+      font-size: .72rem;
+      font-weight: 1000;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+
 </style>
 </head>
 
