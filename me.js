@@ -3,30 +3,38 @@ const crypto = require("crypto");
 function sign(value, secret) {
   return crypto.createHmac("sha256", secret).update(value).digest("base64url");
 }
-function cookies(header) {
-  const out = {};
-  if (!header) return out;
-  header.split(";").forEach(c => {
-    const [k, ...v] = c.trim().split("=");
-    out[k] = v.join("=");
+
+function parseCookies(header) {
+  const cookies = {};
+  if (!header) return cookies;
+  header.split(";").forEach(cookie => {
+    const [name, ...rest] = cookie.trim().split("=");
+    cookies[name] = rest.join("=");
   });
-  return out;
+  return cookies;
 }
 
 exports.handler = async function (event) {
-  const raw = cookies(event.headers.cookie || event.headers.Cookie).dex_session;
   const secret = process.env.SESSION_SECRET;
+  const cookies = parseCookies(event.headers.cookie || event.headers.Cookie);
+  const raw = cookies.dex_session;
 
-  if (!raw || !secret || !raw.includes(".")) {
+  if (!secret || !raw || !raw.includes(".")) {
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ loggedIn:false, joined:false }) };
   }
 
   try {
-    const [encoded, sig] = raw.split(".");
-    if (sig !== sign(encoded, secret)) throw new Error("bad signature");
-    const data = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
-    return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ loggedIn:true, joined:data.joined === true, username:data.username }) };
-  } catch(e) {
+    const [encoded, signature] = raw.split(".");
+    if (signature !== sign(encoded, secret)) throw new Error("Bad signature");
+
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ loggedIn:true, joined:payload.joined === true, username:payload.username || "Discord User" })
+    };
+  } catch (e) {
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ loggedIn:false, joined:false }) };
   }
 };

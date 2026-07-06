@@ -3,14 +3,16 @@ const crypto = require("crypto");
 function b64(input) {
   return Buffer.from(input).toString("base64url");
 }
+
 function sign(value, secret) {
   return crypto.createHmac("sha256", secret).update(value).digest("base64url");
 }
-function cookie(payload) {
+
+function createCookie(payload) {
   const secret = process.env.SESSION_SECRET;
   const encoded = b64(JSON.stringify(payload));
-  const sig = sign(encoded, secret);
-  return `dex_session=${encoded}.${sig}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`;
+  const signature = sign(encoded, secret);
+  return `dex_session=${encoded}.${signature}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`;
 }
 
 exports.handler = async function (event) {
@@ -19,8 +21,9 @@ exports.handler = async function (event) {
   const clientId = process.env.DISCORD_CLIENT_ID;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET;
   const guildId = process.env.DISCORD_GUILD_ID;
+  const sessionSecret = process.env.SESSION_SECRET;
 
-  if (!code || !siteUrl || !clientId || !clientSecret || !guildId || !process.env.SESSION_SECRET) {
+  if (!code || !siteUrl || !clientId || !clientSecret || !guildId || !sessionSecret) {
     return { statusCode: 302, headers: { Location: "/?auth=error" } };
   }
 
@@ -39,30 +42,40 @@ exports.handler = async function (event) {
       })
     });
 
-    if (!tokenRes.ok) return { statusCode: 302, headers: { Location: "/?auth=error" } };
+    if (!tokenRes.ok) {
+      console.log(await tokenRes.text());
+      return { statusCode: 302, headers: { Location: "/?auth=error" } };
+    }
+
     const token = await tokenRes.json();
 
-    const user = await (await fetch("https://discord.com/api/users/@me", {
+    const userRes = await fetch("https://discord.com/api/users/@me", {
       headers: { Authorization: `Bearer ${token.access_token}` }
-    })).json();
+    });
+    const user = await userRes.json();
 
-    const guilds = await (await fetch("https://discord.com/api/users/@me/guilds", {
+    const guildsRes = await fetch("https://discord.com/api/users/@me/guilds", {
       headers: { Authorization: `Bearer ${token.access_token}` }
-    })).json();
+    });
+    const guilds = await guildsRes.json();
 
     const joined = Array.isArray(guilds) && guilds.some(g => g.id === guildId);
-    if (!joined) return { statusCode: 302, headers: { Location: "/?auth=not_joined" } };
+    if (!joined) {
+      return { statusCode: 302, headers: { Location: "/?auth=not_joined" } };
+    }
+
+    const session = {
+      id: user.id,
+      username: user.global_name || user.username || "Discord User",
+      joined: true,
+      iat: Date.now()
+    };
 
     return {
       statusCode: 302,
       headers: {
         Location: "/?auth=success",
-        "Set-Cookie": cookie({
-          id: user.id,
-          username: user.global_name || user.username || "Discord User",
-          joined: true,
-          iat: Date.now()
-        })
+        "Set-Cookie": createCookie(session)
       }
     };
   } catch (e) {
